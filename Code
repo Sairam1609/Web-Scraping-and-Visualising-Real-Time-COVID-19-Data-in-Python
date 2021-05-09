@@ -1,0 +1,104 @@
+# Web Scraping Real Time COVID-19 Data Using BeautifulSoup in Python
+
+# Importing the required libraries
+
+from bs4 import BeautifulSoup
+
+import requests
+
+import pandas as pd
+
+# Defining the url from which we want to scrap
+
+url = 'https://www.worldometers.info/coronavirus/'
+
+# Make a GET request to fetch raw HTML content
+
+html_content = requests.get(url).text
+
+# Parse HTML code for the entire site
+
+soup = BeautifulSoup(html_content, 'html.parser')
+
+# We pick the id of the table we want to scarp and extract HTML code for that particular table only
+
+covid_table = soup.find('table',{'id':'main_table_countries_today'})
+
+# The head will form our columns
+
+head = covid_table.thead.find_all('tr')
+
+headings = []
+
+for th in head[0].find_all('th'):
+	# Remove any new line and extra spaces from left and right
+	headings.append(th.text.replace('\n',' ').strip())
+
+# print(headings)
+
+body = covid_table.tbody.find_all('tr')
+
+#print(body[0])
+
+# Let's declare an empty list data that will hold all rows data
+
+data = []
+
+for r in range(1,len(body)):
+	row = [] # Empty list to hold one row's data
+	for tr in body[r].find_all('td'):
+		row.append(tr.text.replace('\n',' ').strip())
+	# Append row data to data after removing newlines and trimming extra spaces
+	data.append(row)
+
+# Data contains all rows excluding header
+# Row contains data from one row
+
+# We can now pass data into pandas dataframe
+# With headings as columns
+
+df = pd.DataFrame(data, columns = headings)
+#print(df.head(10))
+
+data = df[df['#']!=''].reset_index(drop=True)
+# Data points with # value are the countries of the world while data points with
+# null values for # columns are feautures like country totals etc
+
+data = data.drop_duplicates(subset = ['Country,Other'])
+# Reason to drop duplicates : Worldometer keeps the data for three days on there site  
+# We have to fix that by removing duplicates and end up with the data for “today” only.
+
+# We can drop the following columns
+cols = ['#', 'Tot Cases/1M pop', 'Deaths/1M pop', 'TotalTests','Tests/ 1M pop', '1 Caseevery X ppl', '1 Deathevery X ppl', '1 Testevery X ppl', 'New Cases/1M pop','New Deaths/1M pop', 'Active Cases/1M pop']
+
+data_final = data.drop(cols, axis=1)
+
+#print(data_final.head(10))
+print(data_final.columns)
+
+# Visualising Real Time COVID-19 Data Using Matplotlib and Seaborn in Python
+
+# Scatter Plot of TotalCases and TotalDeaths
+# Pie Chart of Continent Wise Data
+# Bar Plots of TotalCases and Active Cases
+
+import matplotlib.pyplot as plt
+
+import seaborn as sns
+
+head_data = data_final.head(10)
+
+#head_data_int = [int(i.replace(',','')) for i in head_data['TotalCases']]
+colors = ['brown', 'c', 'teal', 'purple', 'c', 'purple', 'purple', 'purple', 'purple', 'purple' ]
+
+# Bar Plots of TotalCases
+
+plt.bar(head_data['Country,Other'], [(int(i.replace(',',''))/1000000) for i in head_data['TotalCases']] )
+
+plt.title('Top 10 countries affected by Coronavirus', fontsize = 16)
+
+plt.xlabel('Name of the Country', fontsize = 14)
+
+plt.ylabel('Real time total COVID-19 cases (in Millions)', fontsize = 14)
+
+plt.show()
